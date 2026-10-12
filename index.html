@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuadrante de turnos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Instrument Sans',system-ui,sans-serif;background:#eef1ec;color:#1d2a24}
+  h1,h2,.disp{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif}
+  .chip{cursor:grab;user-select:none}.chip:active{cursor:grabbing}
+  .cell.over{background:#d9f2e3;outline:2px dashed #1f7a4d;outline-offset:-4px}
+  .pick{box-shadow:0 0 0 3px #1f7a4d}
+  .notes{width:100%;min-height:80px;background:#fff9db;border:1px dashed #d9c86a;border-radius:.5rem;padding:.4rem .5rem;font-size:.8rem;resize:vertical}
+  #tmenu button{display:block;width:100%;text-align:left;padding:.4rem .9rem;font-size:.875rem}
+  #tmenu button:hover{background:#e6f4ec}
+  
+  .sticky-col{position:sticky;left:0;z-index:20;background:#f8fafc}
+  .sticky-corner{position:sticky;left:0;top:0;z-index:30;background:#f8fafc}
+  .sticky-top{position:sticky;top:0;z-index:10}
+  
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body class="min-h-screen pb-10">
+
+<header class="bg-[#15352a] text-white shadow-md">
+  <div class="max-w-[1500px] mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-wrap items-center gap-2 sm:gap-3">
+    <div class="mr-auto">
+      <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Cuadrante de turnos</h1>
+      <p class="text-xs text-emerald-200/80">Arrastra o toca a tu equipo para montar la semana. Todo se guarda en este navegador.</p>
+    </div>
+    <div class="flex items-center gap-1 bg-white/10 rounded-xl p-1">
+      <button onclick="moveWeek(-1)" class="px-2.5 py-1 rounded-lg hover:bg-white/15 font-bold" aria-label="Semana anterior">‹</button>
+      <button onclick="goToday()" class="px-2.5 py-1 rounded-lg hover:bg-white/15 text-xs sm:text-sm font-medium" id="weekLabel" title="Ir a la semana actual"></button>
+      <button onclick="moveWeek(1)" class="px-2.5 py-1 rounded-lg hover:bg-white/15 font-bold" aria-label="Semana siguiente">›</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1500px] mx-auto p-2 sm:p-4 grid lg:grid-cols-[290px_1fr] gap-3 sm:gap-4">
+  <aside class="space-y-3 sm:space-y-4">
+    <section class="bg-white rounded-2xl p-3 sm:p-4 border border-emerald-900/10 shadow-sm">
+      <h2 class="font-bold mb-2 text-sm sm:text-base">Añadir persona</h2>
+      <div class="flex gap-2">
+        <input id="newName" placeholder="Nombre" class="flex-1 min-w-0 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#15352a]" onkeydown="if(event.key==='Enter')addStaff()">
+        <button onclick="addStaff()" class="bg-[#15352a] text-white rounded-lg px-3.5 font-semibold hover:bg-[#1f4d3d]" aria-label="Añadir">+</button>
+      </div>
+      <div class="grid grid-cols-3 gap-1 mt-2 text-xs" id="rolePick"></div>
+    </section>
+    <section class="bg-white rounded-2xl p-3 sm:p-4 border border-emerald-900/10 shadow-sm" id="staffBox" ondragover="event.preventDefault()" ondrop="dropRemove(event)"></section>
+    <p class="text-xs text-slate-500 px-1 leading-relaxed">💡 Toca a una persona para seleccionarla y luego toca las casillas del cuadrante. Toca el horario para cambiarlo.</p>
+  </aside>
+
+  <section class="min-w-0 space-y-3">
+    <div id="summary" class="flex flex-wrap gap-1.5 sm:gap-2 text-xs sm:text-sm"></div>
+
+    <div class="overflow-x-auto rounded-2xl border border-emerald-900/10 bg-white shadow-sm max-h-[75vh] overflow-y-auto">
+      <div id="grid" class="min-w-[820px] sm:min-w-[1000px]"></div>
+    </div>
+
+    <div id="monthLabel" class="disp text-xl sm:text-3xl font-bold text-center text-[#15352a]/80 pt-1"></div>
+    
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button onclick="generateQR()" class="text-xs sm:text-sm bg-[#15352a] text-white rounded-xl px-3 py-2 font-medium hover:bg-[#1f4d3d] shadow-sm flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        Generar QR del Cuadrante
+      </button>
+      <button onclick="addShift()" class="text-xs sm:text-sm bg-white border rounded-xl px-3 py-2 font-medium hover:bg-emerald-50 shadow-sm">+ Añadir franja</button>
+      <button onclick="copyPrev()" class="text-xs sm:text-sm bg-white border rounded-xl px-3 py-2 font-medium hover:bg-emerald-50 shadow-sm">Copiar semana anterior</button>
+      <button onclick="clearWeek()" class="text-xs sm:text-sm bg-white border border-red-200 text-red-700 rounded-xl px-3 py-2 font-medium hover:bg-red-50 shadow-sm">Vaciar semana</button>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL CÓDIGO QR -->
+<div id="qrModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl">
+    <h3 class="disp text-lg font-bold text-[#15352a]">QR del Cuadrante</h3>
+    <p class="text-xs text-slate-600">Escanea este código con cualquier móvil para ver los turnos de la semana al instante.</p>
+    
+    <div id="qrImageContainer" class="flex justify-center p-2 bg-slate-50 border rounded-xl min-h-[160px] items-center">
+      <span class="text-xs text-slate-400">Generando QR…</span>
+    </div>
+
+    <button onclick="closeQRModal()" class="w-full bg-slate-100 text-slate-700 py-2 rounded-xl text-xs font-semibold hover:bg-slate-200">Cerrar</button>
+  </div>
+</div>
+
+<div id="tmenu" class="hidden absolute z-50 bg-white border rounded-xl shadow-xl py-1 min-w-[150px]"></div>
+<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-[#15352a] text-white px-4 py-2 rounded-xl text-sm hidden z-50 shadow-lg"></div>
+
+<script>
+const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const ROLES={
+  enc:{label:'Encargado',short:'Enc.',cls:'bg-amber-100 text-amber-950 border-amber-300',dot:'bg-amber-500',ord:0},
+  sub:{label:'2º Encargado',short:'2º Enc.',cls:'bg-sky-100 text-sky-950 border-sky-300',dot:'bg-sky-500',ord:1},
+  emp:{label:'Empleado',short:'Emp.',cls:'bg-emerald-100 text-emerald-950 border-emerald-300',dot:'bg-emerald-500',ord:2}};
+const KEY='cuadrante_turnos_v2';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function seed(){
+  const w={},put=(sh,d,id,t)=>{const k=sh+'|'+d;(w[k]=w[k]||[]).push(t?{id,t}:{id})};
+  [[0,'raul'],[1,'clara'],[2,'raul'],[3,'clara']].forEach(([d,id])=>put('a',d,id));
+  [[4,'jaime'],[4,'jose'],[5,'jaime'],[5,'miguel'],[6,'jaime'],[6,'clara']].forEach(([d,id])=>put('a',d,id,'3:30-9'));
+  [[0,'miguel'],[1,'raul'],[2,'nora'],[3,'jose'],[4,'nora'],[5,'raul'],[6,'jose']].forEach(([d,id])=>put('c',d,id));
+  [[1,'nora'],[4,'miguel'],[5,'clara']].forEach(([d,id])=>put('c',d,id,'10-C'));
+  [[0,'jaime'],[1,'jaime'],[2,'jesus'],[3,'jesus'],[4,'jesus'],[5,'jesus'],[6,'jesus']].forEach(([d,id])=>put('n',d,id));
+  return{
+    staff:[['raul','Raúl'],['clara','Clara'],['miguel','Miguel'],['nora','Nora'],['jose','Jose'],['jaime','Jaime'],['jesus','Jesús']].map(([id,name])=>({id,name,role:id==='jesus'?'enc':id==='jaime'?'sub':'emp'})),
+    shifts:[{id:'a',name:'Apertura',time:'4-9'},{id:'c',name:'Cierre',time:'9-C'},{id:'n',name:'Encargados',time:'21-C'}],
+    weeks:{'2026-10-12':w},
+    notes:{'2026-10-12':{1:'*ERASMUS',4:'10-C Cristian (portero)',5:'10-C Cristian (portero)'}}};
+}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.staff&&s.shifts){const n=s.shifts.find(x=>x.id==='n'&&x.name==='Noche'&&!x.time);if(n){n.name='Encargados';n.time='21-C';s.staff.forEach(q=>{if(q.id==='jesus'&&q.role==='emp')q.role='enc';if(q.id==='jaime'&&q.role==='emp')q.role='sub'})}return Object.assign({notes:{},weeks:{}},s)}}catch(e){}return seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){toast('No se pudo guardar en el navegador')}}
+function monday(d){d=new Date(d);d.setHours(12,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d}
+const wk=d=>d.toISOString().slice(0,10);
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const week=()=>state.weeks[wk(weekStart)]??(state.weeks[wk(weekStart)]={});
+const notes=()=>state.notes[wk(weekStart)]??(state.notes[wk(weekStart)]={});
+const staffById=id=>state.staff.find(s=>s.id===id);
+const shiftById=id=>state.shifts.find(s=>s.id===id);
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),2200)}
+
+let state=load(),weekStart=monday(new Date()),selected=null,newRole='emp';
+(()=>{const has=k=>state.weeks[k]&&Object.keys(state.weeks[k]).length;if(has(wk(weekStart)))return;
+  const ks=Object.keys(state.weeks).filter(has).sort(),p=ks.find(k=>k>=wk(weekStart))||ks[ks.length-1];if(p)weekStart=new Date(p+'T12:00:00')})();
+
+function render(){
+  const end=addDays(weekStart,6),f=d=>d.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+  document.getElementById('weekLabel').textContent=`${f(weekStart)} – ${f(end)}`;
+  document.getElementById('monthLabel').textContent=weekStart.getMonth()===end.getMonth()?`${MONTHS[end.getMonth()]} ${end.getFullYear()}`:`${MONTHS[weekStart.getMonth()]} – ${MONTHS[end.getMonth()]} ${end.getFullYear()}`;
+  document.getElementById('rolePick').innerHTML=Object.entries(ROLES).map(([k,r])=>`<button onclick="newRole='${k}';render()" class="border rounded-lg py-1 transition-all ${newRole===k?r.cls+' font-bold shadow-xs':'bg-white text-slate-700'}">${r.label}</button>`).join('');
+  
+  const w=week(),tot={};
+  for(const k in w)w[k].forEach(e=>tot[e.id]=(tot[e.id]||0)+1);
+  
+  document.getElementById('staffBox').innerHTML='<h2 class="font-bold mb-2 text-sm sm:text-base">Equipo</h2>'+Object.entries(ROLES).map(([k,r])=>{
+    const list=state.staff.filter(s=>s.role===k);
+    return `<div class="mb-2 sm:mb-3"><div class="text-xs font-semibold text-slate-500 mb-1">${r.label}s (${list.length})</div><div class="flex flex-wrap gap-1.5">`+
+      (list.map(s=>staffChip(s,tot[s.id])).join('')||'<span class="text-xs text-slate-400">Nadie todavía</span>')+'</div></div>'}).join('');
+  
+  document.getElementById('summary').innerHTML=Object.values(ROLES).map(r=>`<span class="flex items-center gap-1.5 bg-white rounded-full px-2.5 py-0.5 border text-xs sm:text-sm shadow-xs"><i class="w-2 h-2 rounded-full ${r.dot}"></i>${r.label}</span>`).join('');
+
+  const today=wk(new Date()),nt=notes();
+  let h=`<div class="grid" style="grid-template-columns:110px repeat(7,minmax(100px,1fr))"><div class="p-2 border-b sticky-corner shadow-xs"></div>`;
+  
+  DAYS.forEach((d,i)=>{const dt=addDays(weekStart,i),isT=wk(dt)===today;
+    h+=`<div class="p-2 border-b border-l text-center sticky-top ${isT?'bg-[#15352a] text-white':'bg-slate-50 text-slate-800'}"><span class="disp font-bold text-xs sm:text-sm">${d}</span><sup class="ml-0.5 text-xs font-semibold ${isT?'text-emerald-300':'text-emerald-800'}">${dt.getDate()}</sup></div>`});
+  
+  state.shifts.forEach(s=>{
+    h+=`<div class="p-2 border-t bg-slate-50 flex flex-col justify-center sticky-col border-r shadow-xs"><div class="disp font-bold leading-tight text-xs sm:text-sm">${esc(s.name)}</div><button onclick="editShift('${s.id}')" class="text-[11px] text-left text-slate-500 hover:text-emerald-700 underline decoration-dotted mt-0.5">${s.time?esc(s.time):'sin hora'}</button></div>`;
+    for(let d=0;d<7;d++){
+      const key=s.id+'|'+d,items=(w[key]||[]).map(e=>({e,p:staffById(e.id)})).filter(x=>x.p).sort((a,b)=>ROLES[a.p.role].ord-ROLES[b.p.role].ord);
+      h+=`<div class="cell border-t border-l p-1 sm:p-1.5 min-h-[75px] flex flex-col gap-1" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="dropCell(event,'${key}')" onclick="clickCell('${key}')">`+
+        items.map(x=>cellChip(x.p,x.e,key,s)).join('')+(!items.length?'<span class="text-slate-300 text-base m-auto select-none">+</span>':'')+'</div>'}
+  });
+  
+  h+=`<div class="p-2 border-t bg-amber-50 flex flex-col justify-center sticky-col border-r shadow-xs"><div class="disp font-bold leading-tight text-xs sm:text-sm">Notas</div><div class="text-[10px] text-slate-500">general</div></div>`;
+  for(let d=0;d<7;d++)h+=`<div class="border-t border-l p-1 bg-white"><textarea class="notes" placeholder="Anotaciones…" oninput="setNote(${d},this.value)" aria-label="Notas del ${DAYS[d]}">${esc(nt[d]||'')}</textarea></div>`;
+  document.getElementById('grid').innerHTML=h+'</div>';
+}
+
+function generateQR(){
+  const modal=document.getElementById('qrModal');
+  const container=document.getElementById('qrImageContainer');
+  modal.classList.remove('hidden');
+  container.innerHTML='<span class="text-xs text-slate-400">Generando QR…</span>';
+
+  let textSummary = `📋 CUADRANTE DE TURNOS\nSemana: ${document.getElementById('weekLabel').textContent}\n\n`;
+  const w=week();
+  state.shifts.forEach(s=>{
+    textSummary += `▪️ ${s.name} (${s.time || 'Sin hora'}):\n`;
+    for(let d=0; d<7; d++){
+      const key = s.id+'|'+d;
+      const items = (w[key]||[]).map(e=>staffById(e.id)?.name).filter(Boolean);
+      if(items.length){
+        textSummary += `   - ${DAYS[d]}: ${items.join(', ')}\n`;
+      }
+    }
+    textSummary += '\n';
+  });
+
+  // Usar servicio público fiable para generar la imagen del QR al instante sin librerías externas que fallen
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(textSummary)}`;
+  container.innerHTML = `<img src="${qrUrl}" alt="Código QR del cuadrante" class="rounded-lg shadow-xs mx-auto">`;
+}
+
+function closeQRModal(){
+  document.getElementById('qrModal').classList.add('hidden');
+}
+
+function staffChip(s,n){const r=ROLES[s.role];
+  return `<span class="chip inline-flex items-center gap-1 border rounded-lg px-1.5 py-0.5 text-xs font-medium ${r.cls} ${selected===s.id?'pick ring-2 ring-[#15352a]':''}" draggable="true" ondragstart="dragStart(event,'${s.id}',null)" onclick="event.stopPropagation();pickStaff('${s.id}')" title="${r.label}">${esc(s.name)}${n?`<small class="opacity-70">${n}t</small>`:''}<button onclick="event.stopPropagation();roleCycle('${s.id}')" class="opacity-60 hover:opacity-100 ml-0.5" title="Cambiar función" aria-label="Cambiar función">⇄</button><button onclick="event.stopPropagation();delStaff('${s.id}')" class="opacity-60 hover:opacity-100" title="Eliminar" aria-label="Eliminar">×</button></span>`}
+
+function cellChip(s,e,key,sh){const r=ROLES[s.role],t=e.t!==undefined?e.t:sh.time;
+  return `<span class="chip inline-flex items-center gap-1 border rounded-lg px-1.5 py-0.5 text-xs ${r.cls}" draggable="true" ondragstart="dragStart(event,'${s.id}','${key}')" onclick="event.stopPropagation()" title="${r.label}">`+
+    `<button onclick="timeMenu(event,'${key}','${s.id}')" class="${t?'disp font-bold underline decoration-dotted underline-offset-2':'opacity-40 text-[10px]'}" title="Cambiar horario">${t?esc(t):'⏱'}</button>`+
+    `<span class="font-medium">${esc(s.name)}</span>${s.role!=='emp'?`<small class="opacity-70">${r.short}</small>`:''}`+
+    `<button onclick="event.stopPropagation();removeFrom('${key}','${s.id}')" class="opacity-60 hover:opacity-100 ml-0.5" aria-label="Quitar">×</button></span>`}
+
+function dragStart(ev,id,from){const e=from?(week()[from]||[]).find(x=>x.id===id):null;
+  ev.dataTransfer.setData('text/plain',JSON.stringify({id,from,t:e?e.t:undefined}));ev.dataTransfer.effectAllowed='copyMove'}
+function assign(key,id,t){const a=week()[key]=week()[key]||[];if(!a.some(e=>e.id===id))a.push(t===undefined?{id}:{id,t})}
+function dropCell(ev,key){ev.preventDefault();ev.currentTarget.classList.remove('over');
+  try{const{id,from,t}=JSON.parse(ev.dataTransfer.getData('text/plain'));if(from===key)return;
+    const same=from&&from.split('|')[0]===key.split('|')[0];assign(key,id,same?t:undefined);if(from)removeFrom(from,id,true);save();render()}catch(_){}}
+function dropRemove(ev){ev.preventDefault();try{const{id,from}=JSON.parse(ev.dataTransfer.getData('text/plain'));if(from)removeFrom(from,id)}catch(_){}}
+function removeFrom(key,id,silent){const w=week();w[key]=(w[key]||[]).filter(e=>e.id!==id);if(!w[key].length)delete w[key];if(!silent){save();render()}}
+function pickStaff(id){selected=selected===id?null:id;render();if(selected)toast('Toca una casilla del cuadrante para asignar a '+staffById(id).name)}
+function clickCell(key){if(!selected)return;if((week()[key]||[]).some(e=>e.id===selected))removeFrom(key,selected);else{assign(key,selected);save();render()}}
+function setNote(d,v){const n=notes();if(v.trim())n[d]=v;else delete n[d];save()}
+
+function timeMenu(ev,key,id){ev.stopPropagation();const m=document.getElementById('tmenu'),opts=new Set(['4-9','3:30-9','9-C','10-C','21-C']);
+  state.shifts.forEach(s=>s.time&&opts.add(s.time));Object.values(state.weeks).forEach(w=>Object.values(w).forEach(a=>a.forEach(e=>e.t&&opts.add(e.t))));
+  m.innerHTML=[...opts].map(o=>`<button data-t="${esc(o)}" class="disp font-bold">${esc(o)}</button>`).join('')+'<button data-t="__other" class="text-emerald-700 font-medium">Otra hora…</button><button data-t="__none" class="text-slate-500 font-medium">Sin hora</button><button data-t="__def" class="text-slate-500">Restablecer</button>';
+  m.onclick=e=>{const t=e.target.dataset.t;if(t===undefined)return;const en=week()[key].find(x=>x.id===id);
+    if(t==='__def')delete en.t;else if(t==='__none')en.t='';
+    else if(t==='__other'){const v=prompt('Horario (ej. 4-9, 3:30-9, 10-C):',en.t||'');if(v===null)return;en.t=v.trim()}else en.t=t;
+    save();render()};
+  m.style.left=Math.min(ev.pageX,innerWidth-170)+'px';m.style.top=ev.pageY+'px';m.classList.remove('hidden')}
+document.addEventListener('click',()=>document.getElementById('tmenu').classList.add('hidden'));
+
+function addStaff(){const i=document.getElementById('newName'),n=i.value.trim();if(!n)return i.focus();state.staff.push({id:uid(),name:n,role:newRole});i.value='';save();render();i.focus()}
+function delStaff(id){if(!confirm('¿Eliminar a '+staffById(id).name+' de todos los cuadrantes?'))return;state.staff=state.staff.filter(s=>s.id!==id);Object.values(state.weeks).forEach(w=>{for(const k in w){w[k]=w[k].filter(e=>e.id!==id);if(!w[k].length)delete w[k]}});if(selected===id)selected=null;save();render()}
+function roleCycle(id){const s=staffById(id),o=['enc','sub','emp'];s.role=o[(o.indexOf(s.role)+1)%3];save();render()}
+function moveWeek(n){weekStart=addDays(weekStart,7*n);render()}
+function goToday(){weekStart=monday(new Date());render()}
+function parseShift(v){const i=v.indexOf(',');return i<0?[v.trim(),'']:[v.slice(0,i).trim(),v.slice(i+1).trim()]}
+function editShift(id){const s=shiftById(id),v=prompt('Nombre y horario por defecto, separados por coma.\nEjemplo: Apertura,4-9\n(Deja el nombre vacío para borrar la franja)',`${s.name},${s.time}`);if(v===null)return;
+  const[n,t]=parseShift(v);if(!n){state.shifts=state.shifts.filter(x=>x.id!==id);Object.values(state.weeks).forEach(w=>{for(const k in w)if(k.startsWith(id+'|'))delete w[k]})}else Object.assign(s,{name:n,time:t});save();render()}
+function addShift(){const v=prompt('Nueva franja: nombre,horario\nEjemplo: Refuerzo,18-C');if(!v)return;const[n,t]=parseShift(v);if(!n)return;state.shifts.push({id:uid(),name:n,time:t});save();render()}
+function clearWeek(){if(confirm('¿Vaciar turnos y notas de esta semana?')){const k=wk(weekStart);delete state.weeks[k];delete state.notes[k];save();render()}}
+function copyPrev(){const k=wk(addDays(weekStart,-7)),p=state.weeks[k];if(!p||!Object.keys(p).length)return toast('La semana anterior está vacía');
+  state.weeks[wk(weekStart)]=structuredClone(p);state.notes[wk(weekStart)]=structuredClone(state.notes[k]||{});save();render();toast('Semana copiada')}
+
+render();save();
+</script>
+</body>
+</html>
