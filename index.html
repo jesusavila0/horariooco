@@ -228,7 +228,7 @@ function cellChip(s,e,key,sh){const r=ROLES[s.role],t=e.t!==undefined?e.t:sh.tim
     `<button onclick="event.stopPropagation();removeFrom('${key}','${s.id}')" class="opacity-60 hover:opacity-100 ml-0.5" aria-label="Quitar">×</button></span>`}
 
 function generateCanvasImage() {
-  toast('✨ Generando documento HD en Canvas...');
+  toast('✨ Preparando imagen HD...');
 
   const end = addDays(weekStart, 6);
   const formatDate = d => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
@@ -256,7 +256,6 @@ function generateCanvasImage() {
   ctx.fillStyle = '#f8fafc';
   ctx.fillRect(0, 0, width, totalHeight);
 
-  // Helper rounding function
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -268,7 +267,6 @@ function generateCanvasImage() {
   }
 
   // 1. Header Banner
-  ctx.save();
   roundRect(20, 20, width - 40, 85, 16);
   const grad = ctx.createLinearGradient(20, 20, width - 40, 105);
   grad.addColorStop(0, '#0f291e');
@@ -276,31 +274,27 @@ function generateCanvasImage() {
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // Title
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 28px "Bricolage Grotesque", sans-serif';
+  ctx.font = 'bold 28px sans-serif';
   ctx.fillText('CUADRANTE DE TURNOS', 45, 60);
 
   ctx.fillStyle = '#a7f3d0';
-  ctx.font = '500 14px "Instrument Sans", sans-serif';
+  ctx.font = '500 14px sans-serif';
   ctx.fillText('Planificación semanal del equipo', 45, 82);
 
-  // Date Tag
   roundRect(width - 320, 38, 280, 48, 12);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-  ctx.lineWidth = 1;
   ctx.stroke();
 
   ctx.fillStyle = '#6ee7b7';
-  ctx.font = 'bold 11px "Instrument Sans", sans-serif';
+  ctx.font = 'bold 11px sans-serif';
   ctx.fillText('SEMANA', width - 305, 56);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 16px "Bricolage Grotesque", sans-serif';
+  ctx.font = 'bold 16px sans-serif';
   ctx.fillText(dateStr, width - 305, 75);
-  ctx.restore();
 
   let startY = 125;
 
@@ -308,15 +302,12 @@ function generateCanvasImage() {
   ctx.fillStyle = '#f1f5f9';
   ctx.fillRect(20, startY, width - 40, dayHeaderHeight);
   ctx.strokeStyle = '#cbd5e1';
-  ctx.lineWidth = 1;
   ctx.strokeRect(20, startY, width - 40, dayHeaderHeight);
 
-  // Header Title Column
   ctx.fillStyle = '#334155';
-  ctx.font = 'bold 14px "Bricolage Grotesque", sans-serif';
+  ctx.font = 'bold 14px sans-serif';
   ctx.fillText('TURNO / DÍA', 40, startY + 32);
 
-  // Render Day Headers
   DAYS.forEach((d, i) => {
     const dt = addDays(weekStart, i);
     const x = 20 + headerColWidth + (i * colWidth);
@@ -328,12 +319,12 @@ function generateCanvasImage() {
     ctx.stroke();
 
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 15px "Bricolage Grotesque", sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(d, x + (colWidth / 2), startY + 24);
 
     ctx.fillStyle = '#059669';
-    ctx.font = '600 13px "Instrument Sans", sans-serif';
+    ctx.font = '600 13px sans-serif';
     ctx.fillText(`${dt.getDate()} ${MONTHS[dt.getMonth()].slice(0, 3)}`, x + (colWidth / 2), startY + 42);
   });
   ctx.textAlign = 'left';
@@ -345,22 +336,19 @@ function generateCanvasImage() {
   state.shifts.forEach((s, idx) => {
     const rowY = startY + (idx * rowHeight);
 
-    // Row Background
     ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#fafafa';
     ctx.fillRect(20, rowY, width - 40, rowHeight);
     ctx.strokeStyle = '#e2e8f0';
     ctx.strokeRect(20, rowY, width - 40, rowHeight);
 
-    // Shift Label
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 15px "Bricolage Grotesque", sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     ctx.fillText(s.name, 35, rowY + 38);
 
     ctx.fillStyle = '#64748b';
-    ctx.font = '500 12px "Instrument Sans", sans-serif';
+    ctx.font = '500 12px sans-serif';
     ctx.fillText(s.time || 'Sin hora', 35, rowY + 58);
 
-    // Grid Items
     for (let d = 0; d < 7; d++) {
       const cellX = 20 + headerColWidth + (d * colWidth);
       ctx.strokeStyle = '#e2e8f0';
@@ -377,20 +365,16 @@ function generateCanvasImage() {
         const r = ROLES[x.p.role];
         const timeDisplay = x.e.t !== undefined ? x.e.t : s.time;
 
-        // Draw Badge
         roundRect(cellX + 8, itemY, colWidth - 16, 26, 6);
         ctx.fillStyle = r.bg;
         ctx.fill();
         ctx.strokeStyle = r.border;
-        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Person Name
         ctx.fillStyle = r.text;
-        ctx.font = 'bold 12px "Instrument Sans", sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.fillText(x.p.name, cellX + 16, itemY + 17);
 
-        // Optional Specific Time Tag
         if (timeDisplay) {
           const tWidth = ctx.measureText(timeDisplay).width + 8;
           const tX = cellX + colWidth - 16 - tWidth;
@@ -402,7 +386,6 @@ function generateCanvasImage() {
           ctx.font = 'bold 10px monospace';
           ctx.fillText(timeDisplay, tX + 4, itemY + 16);
         }
-
         itemY += 30;
       });
     }
@@ -417,7 +400,7 @@ function generateCanvasImage() {
   ctx.strokeRect(20, startY, width - 40, notesRowHeight);
 
   ctx.fillStyle = '#92400e';
-  ctx.font = 'bold 14px "Bricolage Grotesque", sans-serif';
+  ctx.font = 'bold 14px sans-serif';
   ctx.fillText('Anotaciones', 35, startY + 45);
 
   const nt = notes();
@@ -432,13 +415,9 @@ function generateCanvasImage() {
     const text = nt[d] || '';
     if (text) {
       ctx.fillStyle = '#78350f';
-      ctx.font = '500 11px "Instrument Sans", sans-serif';
-      
-      const lines = text.split('\n');
-      lines.forEach((line, lIdx) => {
-        if (lIdx < 4) {
-          ctx.fillText(line.substring(0, 22), cellX + 10, startY + 25 + (lIdx * 15));
-        }
+      ctx.font = '500 11px sans-serif';
+      text.split('\n').forEach((line, lIdx) => {
+        if (lIdx < 4) ctx.fillText(line.substring(0, 22), cellX + 10, startY + 25 + (lIdx * 15));
       });
     }
   }
@@ -453,7 +432,7 @@ function generateCanvasImage() {
   ctx.strokeRect(20, startY, width - 40, footerHeight);
 
   ctx.fillStyle = '#0f172a';
-  ctx.font = 'bold 13px "Instrument Sans", sans-serif';
+  ctx.font = 'bold 13px sans-serif';
   ctx.fillText('Categorías:', 40, startY + 38);
 
   let legX = 140;
@@ -462,25 +441,40 @@ function generateCanvasImage() {
     ctx.arc(legX, startY + 34, 5, 0, Math.PI * 2);
     ctx.fillStyle = r.dot;
     ctx.fill();
-
     ctx.fillStyle = '#475569';
-    ctx.font = '500 13px "Instrument Sans", sans-serif';
+    ctx.font = '500 13px sans-serif';
     ctx.fillText(r.label, legX + 12, startY + 38);
-
     legX += 130;
   });
 
   ctx.fillStyle = '#94a3b8';
-  ctx.font = '500 12px "Instrument Sans", sans-serif';
+  ctx.font = '500 12px sans-serif';
   ctx.fillText(`Generado el ${new Date().toLocaleDateString('es-ES')}`, width - 200, startY + 38);
 
-  // Trigger Download
-  const link = document.createElement('a');
-  link.download = `cuadrante_${wk(weekStart)}.png`;
-  link.href = canvas.toDataURL('image/png', 1.0);
-  link.click();
-
-  toast('✅ ¡Imagen HD exportada con éxito!');
+  // Trigger Download / Mobile view
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      const newTab = window.open(url, '_blank');
+      if (!newTab) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.textContent = '📥 Toca aquí para ver y guardar tu imagen HD';
+        a.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#0f291e] text-white px-5 py-3 rounded-2xl shadow-2xl z-50 font-bold text-sm border border-emerald-500/30 text-center';
+        document.body.appendChild(a);
+        setTimeout(() => a.remove(), 10000);
+      }
+    } else {
+      const link = document.createElement('a');
+      link.download = `cuadrante_${wk(weekStart)}.png`;
+      link.href = url;
+      link.click();
+    }
+    toast('✅ ¡Imagen lista!');
+  }, 'image/png', 1.0);
 }
 
 function dragStart(ev,id,from){const e=from?(week()[from]||[]).find(x=>x.id===id):null;
